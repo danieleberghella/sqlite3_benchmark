@@ -3,7 +3,7 @@ import random
 import time
 
 CSV_FILE = "data.csv"
-NUM_RECORDS = 50000000
+NUM_RECORDS = 10000
 
 
 def generate_csv(file_name, num_records):

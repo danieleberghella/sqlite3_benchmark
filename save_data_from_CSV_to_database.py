@@ -1,17 +1,20 @@
 import sqlite3
 import csv
 import time
+import os
 
 DB_FILE = "database.db"
 CSV_FILE = "data.csv"
 TABLE_NAME = "employees"
-BATCH_SIZE = 50000
+
+if os.path.exists(DB_FILE):
+    os.remove(DB_FILE)
 
 
 def apply_pragma(cursor):
     cursor.executescript("""
         PRAGMA synchronous = OFF;
-        PRAGMA journal_mode = WAL;
+        PRAGMA journal_mode = MEMORY;
         PRAGMA cache_size = 100000;
     """)
 
@@ -21,11 +24,12 @@ def reset_pragma(cursor):
         PRAGMA journal_mode = DELETE;
         PRAGMA synchronous = FULL;
         PRAGMA cache_size = 2000;
+        PRAGMA vacuum;
     """)
 
 
 def check_pragma(cursor):
-    for pragma in ["synchronous", "journal_mode", "temp_store", "cache_size", "locking_mode"]:
+    for pragma in ["synchronous", "journal_mode", "cache_size", "locking_mode"]:
         cursor.execute(f"PRAGMA {pragma};")
         print(f"PRAGMA {pragma}: {cursor.fetchone()[0]}")
 
@@ -64,18 +68,11 @@ def import_csv_to_sqlite(db_file, csv_file, use_pragma=True):
     with open(csv_file, mode="r") as file:
         reader = csv.reader(file)
         next(reader)
-        batch = []
 
         for i, row in enumerate(reader, start=1):
-            batch.append(row)
-            if i % BATCH_SIZE == 0:
-                cursor.executemany(f"INSERT INTO {TABLE_NAME} (id, name, age, salary) VALUES (?, ?, ?, ?)", batch)
-                batch = []
+            cursor.executemany(f"INSERT INTO {TABLE_NAME} (id, name, age, salary) VALUES (?, ?, ?, ?)", [row])
+            conn.commit()
 
-        if batch:
-            cursor.executemany(f"INSERT INTO {TABLE_NAME} (id, name, age, salary) VALUES (?, ?, ?, ?)", batch)
-
-    conn.commit()
     print(f"\nImport completed in {time.time() - start_time:.2f} seconds")
 
     if use_pragma:
